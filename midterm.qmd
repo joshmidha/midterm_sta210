@@ -1,0 +1,129 @@
+---
+title: "HW 3"
+author: "Your name here"
+format: pdf
+---
+
+## Read in the data
+
+```{r read-data, message = F}
+library(tidyverse)
+library(tidymodels)
+
+beijing <- read.csv("~/class-files/beijing.csv")
+```
+
+## Exercise 1 (Q 2.1)
+
+```{r linear-model, message = F}
+
+beijing_pred <- lm(formula = SO2 ~ as.factor(month) + TEMP + DEWP + RAIN + PRES + wd + WSPM, data = beijing)
+
+summary(beijing_pred)
+```
+
+## Exercise 2 (Q 2.2)
+
+1.  The estimate at the intercept term of the model is 585.6. In the context of the data, it means that our model predicts that when there is no wind (as in a wind speed of 0, and thus despite wind direction), 0mm precipitation, in January, 0 hPa pressure, a temperature of 0 degrees Celsius, and a dew point of 0 degrees Celsius, the concentration of SO2 is 585.6 ug/m^3^.
+2.  The estimate corresponding to barometric pressure is -0.53. In the context of the data, this means, on average and while holding all other variables constant, our model predicts for every 1 hPa increase in barometric pressure, there is a 0.53 ug/m^3^ decrease in the concentration of SO2.
+3.  For wind blowing westwards, there is a corresponding estimate of 1.29. In the context off the data, this means, on average and while holding all variables constant, our model predicts that if the wind is blowing westward, there is a 1.29 ug/m^3^ increase in the concentration of SO2.
+4.  
+
+## Exercise 3 (Q 2.3)
+
+1.  The null hypothesis states the there is no relationship between precipitation and the concentration of SO2 in Beijing, while controlling for other variables. As in a change in the amount of rain has no impact on the concentration of SO2, while controlling for other variables. The alternative hypothesis states there exists a relationship between precipitation and the concentration of SO2, while controlling for other variables. As in a change in the amount of precipitation has an affect on the concentration of SO2, while controlling for other variables.
+2.  Given that p \> 0.05, we fail to reject the null hypothesis. There is not sufficient evidence to suggest that there is a relationship between precipitation and the concentration of SO2, while controlling for other variables.
+
+## Exercise 4 (Q 2.4)
+
+1.  According to our model, the corresponding slope for each month is highest during the December, January, and February. Considering a major source of SO2 in the atmosphere are coal burning power plants, during these winter months when coal burning power plants are used for heating homes and other buildings, it makes sense that our model predicts higher slopes during these months for the concentration of SO2.
+
+## Exercise 5 (Q 2.5)
+
+```{r assumptions, message = F}
+
+beijing_aug <- augment(beijing_pred)
+
+beijing_aug |>
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "darkred") +
+  labs(x = "Fitted Values", y = "Residuals",
+       title = "Evidence of non-linearity and non-constant variance")
+
+beijing_aug |>
+  ggplot(aes(sample = .resid)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(x = "Theoretical Quantiles", y = "Sample Quantiles",
+       title = "Evidence of non-normality of residuals")
+```
+
+1.  Independence: To test our assumption for independence, we must evaluate how the data was collected, and whether the nature of the variables may induce confounding. In our data, we see that our dataset represents approximately 35 thousand observations of various atmospheric pollutants as measured from March 2013 through February 2017 at Beijing's Wanshou Temple. Here, there seems to be no blatant issues with data collection. With specific variables, there may be potential limitations. Temperature and air pressure may not necessarily be independent as temperature increases, air molecules gain kinetic energy and move more vigorously, leading to higher pressure (the Ideal Gas Law). While wind direction indicates the compass direction from which the wind is blowing, wind speed represents the rate at which air is moving. Changes in wind speed can influence wind direction and vice versa, especially in complex atmospheric conditions such as the presence of fronts or topographical features. RAIN and PM2.5, PM10, NO2, SO2, CO, O3 may not be independent. Precipitation can influence the concentration of airborne pollutants by removing them from the atmosphere through wet deposition. Higher precipitation rates can lead to lower pollutant concentrations as pollutants are washed out of the air. Thus, we reject our initial assumption for independence in this data.
+2.  Linearity: To test our assumption for linearity, we must look at the residual plot. In the residual plot, linearity is violated as the residuals are not symmetrically distributed about the horizontal axis.
+3.  Normality: To test our assumption for normality, we must look at a Q-Q plot and the distribution of the residuals. In the Q-Q plot, the sample quantities do not match what is expected under the theoretical quantiles from the normal distribution.
+4.  Constant Variance: To test our assumption for constant variance, we must look at the residual plot. Constant variable is violated as the residuals fan out for higher predicted values.
+
+## Exercise 6 (Q 2.6)
+
+|                                           |                |
+|:-----------------------------------------:|:--------------:|
+|            **Air temperature**            |   **0.0°C**    |
+|               **Dew point**               |  **-14.4°C**   |
+|            **Wind direction**             | **North-East** |
+|              **Wind speed**               |   **1 m/s**    |
+| **Atmospheric pressure at station level** | **1027.7 hPa** |
+|              **Time (EST)**               |  **2:01 PM**   |
+
+-   
+
+```{r predict, message = F}
+
+weather_sample <- data.frame(TEMP = 0.0, DEWP = -14.4, wd = "NE", WSPM = 1.0, month = 2, RAIN = 0, PRES = 1027.7)
+
+predict(beijing_pred, newdata = weather_sample)
+```
+
+Prediction = 27.73 ug/m\^3
+
+Observed = 19 ug/m\^3
+
+Prediction - Observed = 27.73 - 19 = 8.73
+
+## Exercise 7 (Q 2.7)
+
+```{r month-performance, message = F}
+
+beijing_aug |>
+  ggplot(aes(x = `as.factor(month)`, y = .resid)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "darkred") +
+  labs(x = "Fitted Values", y = "Residuals")
+
+beijing_aug$abs_resid <- abs(beijing_aug$.resid)
+
+means_abs_resid <- beijing_aug |>
+  group_by(`as.factor(month)`) |>
+  summarize(mean_abs_resid = mean(abs_resid))
+
+means_abs_resid$`as.factor(month)`[order(-means_abs_resid$mean_abs_resid)[1:3]]
+
+var_resid <- beijing_aug |>
+  group_by(`as.factor(month)`) |>
+  summarize(std_dev_resid = mean(abs(.std.resid)))
+
+var_resid$`as.factor(month)`[order(-var_resid$std_dev_resid)[1:3]]
+```
+
+By average prediction error, February (23), January (22), then March (20) have the highest prediction error. By this standard, the model was worst at predicting for these months. This was the same result for the variance of the predictions. Here, we observed February (1.15), January (1.12), then March (1.03) have the highest variance. Even from the plot of the residuals by month, we see that those three months have the most variance in residual points and the highest residuals.
+
+## Exercise 8 (Q 2.8)
+
+```{r over-under, message = F}
+
+count_over <- sum(beijing_aug$.resid < 0)
+count_under <- sum(beijing_aug$.resid > 0)
+
+print(count_over)
+print(count_under)
+```
