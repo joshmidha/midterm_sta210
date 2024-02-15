@@ -127,3 +127,11 @@ count_under <- sum(beijing_aug$.resid > 0)
 print(count_over)
 print(count_under)
 ```
+
+Over/under prediction is based on whether the residual was positive or negative.
+
+\# of over-predictions = 21,052
+
+\# of under-predictions = 13,259
+
+Since the number of over-predictions are higher than the number of under-predictions, our model makes under-predictions more frequently.
